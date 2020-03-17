@@ -1,0 +1,105 @@
+---
+title: "DS_proj2"
+author: "Hana Akbarnejad"
+date: "3/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(viridis)
+library(ggplot2)
+library(readr)
+library(caret)
+library(splines)
+library(mgcv)
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+```
+
+```{r data}
+
+# excluding Columbia University from Data
+college_data = read_csv("College.csv") %>% 
+  janitor::clean_names() %>% 
+  filter(college != "Columbia University") %>% 
+  select(-college) %>% 
+  select(outstate, everything())
+
+# defining model matrix of response variables and y(outstate tuition)
+x = model.matrix(outstate~.,college_data)[,-1]
+y = college_data$outstate
+```
+
+### Part a
+
+In this part, I will create scatter plots to show the relationship between reponse variable and covariates. I used *featureplot* from *caret package* to do this.
+```{r part_a}
+
+#scatterplot
+theme1 <- trellis.par.get()
+theme1$plot.symbol$col <- rgb(.2, .4, .2, .5)
+theme1$plot.symbol$pch <- 16
+theme1$plot.line$col <- rgb(.8, .1, .1, 1)
+theme1$plot.line$lwd <- 2
+theme1$strip.background$col <- rgb(.0, .2, .6, .2)
+trellis.par.set(theme1)
+featurePlot(x, y, plot = "scatter", labels = c("","Y"),
+type = c("p"), layout = c(4, 4))
+```
+
+describe the results......................
+
+### Part b
+
+In this part I will fit a **smoothing spline model** using *terminal* as the only predictor and *outstate* as the outcome.
+
+For the degrees of freedom, I will use two methods and plot the resulting fits:
+
+* Using a range of degrees of freedom
+
+* Using generalized cross-validation (GCV) to obtain degrees of freedom
+
+```{r}
+
+# df using GCV
+ss_fit2 = smooth.spline(college_data$terminal, college_data$outstate)
+ss_fit2
+
+# plotting the ss fit
+terminal_lims = range(college_data$terminal)
+terminal_grid = seq(from = terminal_lims[1],to = terminal_lims[2])
+
+ss_pred = predict(ss_fit2, x = terminal_grid)
+ss_pred_df = data.frame(pred = ss_pred$y, terminal = terminal_grid)
+
+
+ggplot(data = college_data, aes(x = terminal, y = outstate)) +
+geom_point(color = rgb(.2, .4, .2, .5)) +
+geom_line(aes(x = terminal, y = pred), data = ss_pred_df,
+color = rgb(.8, .1, .1, 1)) + theme_bw()
+```
+
+From the above model, we can observe that the degrees of freedom from GCV is `r round(ss_fit2$df, 3)`, with the smoothing parameter of `r round(ss_fit2$spar, 3)`, and $\lambda$ of `r round(ss_fit2$lambda, 3)`.
+
+
+Describe the results obtained...................
+
+```{r}
+
+```
+
