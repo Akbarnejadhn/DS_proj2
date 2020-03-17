@@ -14,6 +14,8 @@ library(readr)
 library(caret)
 library(splines)
 library(mgcv)
+library(pdp)
+library(earth)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -43,6 +45,7 @@ college_data = read_csv("College.csv") %>%
 # defining model matrix of response variables and y(outstate tuition)
 x = model.matrix(outstate~.,college_data)[,-1]
 y = college_data$outstate
+control = trainControl(method = "cv", number = 10)
 ```
 
 ### Part a
@@ -103,3 +106,46 @@ Describe the results obtained...................
 
 ```
 
+### Part c
+Fit a generalized additive model (GAM) using all the predictors. Plot the results and explain your findings.
+
+```{r}
+
+gam_fit1 = gam(outstate ~ terminal+apps+accept+enroll+top10perc+top25perc+f_undergrad+p_undergrad+room_board+books+personal+ph_d+s_f_ratio, data = college_data)
+
+gam_fit2 = gam(outstate ~ s(terminal)+apps+accept+enroll+top10perc+top25perc+f_undergrad+p_undergrad+room_board+books+personal+ph_d+s_f_ratio, data = college_data)
+
+anova(gam_fit1, gam_fit2, test = "F")  # go with gam_fit2
+
+plot(gam_fit2)
+```
+
+The degree of freedom obtained by GCV method is 3.35.
+
+Describe the results obtained...................
+
+### Part d
+Fit a multivariate adaptive regression spline (MARS) model using all the predictors. Report the final model. Present the partial dependence plot of an arbitrary predictor in your final model.
+
+First, we need to perform a grid search to identify the optimal combination of two tuning parameters (i.e degree of interactions and the number of retained terms) that minimize prediction error
+
+```{r}
+
+mars_grid = expand.grid(degree = 1:2,
+                        nprune = 2:10)
+set.seed(1)
+
+mars_fit = train(x, y, method = "earth",
+                tuneGrid = mars_grid,
+                trControl = control)
+
+ggplot(mars_fit)  ## ?! 10?? shouldn't I go further since 10 is a boundary value?
+mars_fit$bestTune
+coef(mars_fit$finalModel) # final model
+```
+
+We can create partial dependence plots (PDPs) for perc_alumni:
+```{r PDP}
+
+p1 = partial(mars_fit, pred.var = c("perc_alumni"), grid.resolution = 10) %>% autoplot()
+```
