@@ -1,7 +1,7 @@
 ---
-title: "DS_proj2"
+title: "Nonlinear Models (Splines, GAM, and MARS)"
 author: "Hana Akbarnejad"
-date: "3/16/2020"
+date: "3/20/2020"
 output: html_document
 ---
 
@@ -32,6 +32,8 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
+
+\newpage
 
 ```{r data}
 
@@ -80,16 +82,19 @@ For the degrees of freedom, I will use two methods and plot the resulting fits:
 
 ```{r}
 
-# df using GCV
-ss_fit = smooth.spline(college_data$terminal, college_data$outstate)
-ss_fit
-
-ss_fit$df
-
-# plotting the ss fit
 terminal_lims = range(college_data$terminal)
 terminal_grid = seq(from = terminal_lims[1],to = terminal_lims[2])
 
+# df using GCV
+ss_fit = smooth.spline(college_data$terminal, college_data$outstate)
+ss_fit
+ss_pred = predict(ss_fit, x = terminal_grid)
+ss_pred_df = data.frame(pred = ss_pred$y, terminal = terminal_grid)
+
+ss_fit$df
+
+
+# plotting the ss fit
 ss_fit2 = smooth.spline(college_data$terminal, college_data$outstate, df = 2)
 ss_fit2
 ss_pred2 = predict(ss_fit2, x = terminal_grid)
@@ -112,30 +117,32 @@ ss_fit20
 ss_pred20 = predict(ss_fit20, x = terminal_grid)
 ss_pred_df20 = data.frame(pred = ss_pred20$y, terminal = terminal_grid)
 
+ss_fit30 = smooth.spline(college_data$terminal, college_data$outstate, df = 30)
+ss_fit30
+ss_pred30 = predict(ss_fit30, x = terminal_grid)
+ss_pred_df30 = data.frame(pred = ss_pred30$y, terminal = terminal_grid)
+
 # plotting
 
 ggplot(data = college_data, aes(x = terminal, y = outstate)) +
 geom_point(color = rgb(.2, .4, .2, .5)) +
-  
+    geom_line(aes(x = terminal, y = pred), data = ss_pred_df, color = "blue", size = 1) +
     geom_line(aes(x = terminal, y = pred), data = ss_pred_df2, color = "red", size = 1) +
     geom_line(aes(x = terminal, y = pred), data = ss_pred_df6, color = "green", size = 1) +
     geom_line(aes(x = terminal, y = pred), data = ss_pred_df10, color = "orange", size = 1) +
     geom_line(aes(x = terminal, y = pred), data = ss_pred_df20, color = "black", size = 1) +
+    geom_line(aes(x = terminal, y = pred), data = ss_pred_df30, color = "purple", size = 1) +
     theme_bw()
 
 ```
 
-???From the above model, we can observe that the degrees of freedom from GCV is `r round(ss_fit2$df, 3)`, with the smoothing parameter of `r round(ss_fit2$spar, 3)`, and $\lambda$ of `r round(ss_fit2$lambda, 3)`.
+From the above model, we can observe that the degrees of freedom from GCV is `r round(ss_fit$df, 3)`, with the smoothing parameter of `r round(ss_fit2$spar, 3)`, and $\lambda$ of `r round(ss_fit2$lambda, 3)`.
 
 
 Describe the results obtained...................
 
-```{r}
-
-```
-
 ### Part c
-Fit a generalized additive model (GAM) using all the predictors. Plot the results and explain your findings.
+Fit a **generalized additive model (GAM)** using all the predictors. Plot the results and explain your findings.
 
 ```{r}
 
@@ -150,22 +157,11 @@ plot(gam_fit2)
 
 The degree of freedom obtained by GCV method is 3.35.
 
-```{r gam_with_caret}
-
-gam.fit <- train(x, y,
-method = "gam",
-tuneGrid = data.frame(method = "GCV.Cp", select = c(TRUE,FALSE)),
-trControl = control)
-gam.fit$bestTune
-
-plot(gam.fit)
-```
-
 
 Describe the results obtained...................
 
 ### Part d
-Fit a multivariate adaptive regression spline (MARS) model using all the predictors. Report the final model. Present the partial dependence plot of an arbitrary predictor in your final model.
+Fit a **Multivariate Adaptive Regression Spline (MARS)** model using all the predictors. Report the final model. Present the partial dependence plot of an arbitrary predictor in your final model.
 
 First, we need to perform a grid search to identify the optimal combination of two tuning parameters (i.e degree of interactions and the number of retained terms) that minimize prediction error
 
@@ -179,7 +175,7 @@ mars_fit = train(x, y, method = "earth",
                 tuneGrid = mars_grid,
                 trControl = control)
 
-ggplot(mars_fit)  ## ?! 10?? shouldn't I go further since 10 is a boundary value?
+ggplot(mars_fit)
 mars_fit$bestTune
 coef(mars_fit$finalModel) # final model
 ```
@@ -188,4 +184,9 @@ We can create partial dependence plots (PDPs) for perc_alumni:
 ```{r PDP}
 
 p1 = partial(mars_fit, pred.var = c("perc_alumni"), grid.resolution = 10) %>% autoplot()
+p2 = partial(mars_fit, pred.var = c("room_board"), grid.resolution = 10) %>% autoplot()
+p3 = partial(mars_fit, pred.var = c("enroll"), grid.resolution = 10) %>% autoplot()
+p1
+p2
+p3
 ```
