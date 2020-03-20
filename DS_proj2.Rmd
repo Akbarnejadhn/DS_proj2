@@ -47,7 +47,7 @@ college_data = read_csv("College.csv") %>%
 # defining model matrix of response variables and y(outstate tuition)
 x = model.matrix(outstate~.,college_data)[,-1]
 y = college_data$outstate
-control = trainControl(method = "cv", number = 5)
+control = trainControl(method = "cv", number = 10)
 ```
 
 ### Part a
@@ -168,7 +168,7 @@ First, we need to perform a grid search to identify the optimal combination of t
 ```{r}
 
 mars_grid = expand.grid(degree = 1:2,
-                        nprune = 2:10)
+                        nprune = 2:20)
 set.seed(1)
 
 mars_fit = train(x, y, method = "earth",
@@ -180,13 +180,37 @@ mars_fit$bestTune
 coef(mars_fit$finalModel) # final model
 ```
 
-We can create partial dependence plots (PDPs) for perc_alumni:
+It can be observed that the optimum number of parameters is `r mars_fit$bestTune`, so our finalModel will have 17 terms including the intercept.
+I created partial dependence plots (PDPs) for some variables:
 ```{r PDP}
 
-p1 = partial(mars_fit, pred.var = c("perc_alumni"), grid.resolution = 10) %>% autoplot()
-p2 = partial(mars_fit, pred.var = c("room_board"), grid.resolution = 10) %>% autoplot()
-p3 = partial(mars_fit, pred.var = c("enroll"), grid.resolution = 10) %>% autoplot()
+p1 = partial(mars_fit, pred.var = c("accept"), grid.resolution = 10) %>% autoplot()
+p2 = partial(mars_fit, pred.var = c("enroll"), grid.resolution = 10) %>% autoplot()
 p1
 p2
+
+p3 = partial(mars_fit, pred.var = c("accept", "enroll"), grid.resolution = 10) %>%
+     plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE,
+     screen = list(z = 20, x = -60))
 p3
 ```
+
+Describe the results?..........
+
+### Part e
+
+In this part, I am going to predict the outstate tuition of Columbia University based on the GAM and MARS models that I have built in parts c and d.
+
+```{r predict_cu}
+
+college_data_cu = read_csv("College.csv") %>% 
+  janitor::clean_names() %>% 
+  filter(college == "Columbia University") %>% 
+  select(-college, -outstate)
+
+gam_pred = predict(gam_fit2, newdata = college_data_cu)
+  
+mars_pred = predict(mars_fit, newdata = college_data_cu)
+```
+
+`r gam_pred`
