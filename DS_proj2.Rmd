@@ -100,9 +100,7 @@ Form scatter plots above, I believe variables *to 10 percent*, *top 25 percent*,
 
 On the other hand, I believe variables *terminal*, *PhD*, and *expend* follow non-linear trends for sure.
 
-Some other candidates for non-linearity are the variables *apps*, *access*, *enroll*, *f_undergrad*, *p_undergrad*, *personal*, and *books*. However, identifying their trend need more investigation on their outlier values and cannot be determined only by looking at the plots.
-
-So, there are 10 total number of candidates for non-linearity, and 3 non-linear variables.
+For the other variables *apps*, *access*, *enroll*, *f_undergrad*, *p_undergrad*, *personal*, and *books*, however, identifying their trend need more investigation on their outlier values and cannot be determined only by looking at the plots. For the purpose of this homework, I am not going to consider them as non-linear.
 
 ### Part b
 
@@ -182,26 +180,45 @@ From the above model, we can observe that the degrees of freedom from GCV is `r 
 
 I also tried a range of degrees of freedom which was consisted of 2, 3, 6, 10, and 20.
 
-Results show that the higher degree of freedom, the more wiggely the fitted line is. The soomthest line possible is a straight line with the degree of freedom of 2. when we move from df of 2 to df of 3, the line obtains more curvture, but it still doesnt capture a lot of points and we loose a lot of information of non-linearity due to underfitting and increasing the bias. When we choose df of 6, the curve starts to get wiggely, and it intensifies as we increase df to 10 and 20 which is the problem of overfitting and increasing the variance. We can see that the df chosen through GCV (`r round(ss_fit$df, 3)`) produces the line that fits the data the best withought having the problem of over or under fitting and the best bias-variance balance. This result visually supports the result that we have obtained from smooth.spline() function.
+Results show that the higher degree of freedom, the more wiggely the fitted line is. The soomthest line possible is a straight line with the degree of freedom of 2. when we move from df of 2 to df of 3, the line obtains more curvture, but it still doesnt capture a lot of points and we loose a lot of information of non-linearity due to underfitting and increasing the bias. When we choose df of 6, the curve starts to get wiggely, and it intensifies as we increase df to 10 and 20 which is the problem of overfitting and increasing the variance. We can see that the df chosen through GCV (`r round(ss_fit$df, 3)`) produces the line that fits the data the best withought having the problem of over or under fitting and the best bias-variance balance. This result visually supports the result that we have obtained from smooth.spline() function. The plot shows that the out of state tuition increases with a very low slope up to the terminal value of 60%. However, after we pass the 60% of faculties with terminal degree, there is and exponential increasing trend in the out of tuition of universities.
 
 ### Part c
-Fit a **generalized additive model (GAM)** using all the predictors. Plot the results and explain your findings.
+In this part, I would like to fit a **generalized additive model (GAM)** using all the predictors. Refering to previous parts, I have two possible models that I would like to decide between these nested models using ANOVA:
+
+* All variables, with one smooth term: *terminal* (because it was asked about in **part b**)
+
+* All variables, with three smooth terms: *terminal*, *ph_d*, *expend* (variables that seem to follow non-linear trend)
+
+*Please note that I used ANOVA to compare these two models despite the fcat that I know it is not the best approach for comparing models and we prefer using CV methods. I chose this approch because it was used for comparing GAM models in both lecture notes from the class and the textbook.*
 
 ```{r}
 
-gam_fit1 = gam(outstate ~ terminal+apps+accept+enroll+top10perc+top25perc+f_undergrad+p_undergrad+room_board+books+personal+ph_d+s_f_ratio, data = college_data)
+gam_fit1 = gam(outstate ~ s(terminal)+apps+expend+accept+enroll+top10perc+top25perc+f_undergrad+p_undergrad+room_board+books+personal+ph_d+s_f_ratio+perc_alumni+grad_rate, data = college_data)
 
-gam_fit2 = gam(outstate ~ s(terminal)+apps+accept+enroll+top10perc+top25perc+f_undergrad+p_undergrad+room_board+books+personal+ph_d+s_f_ratio, data = college_data)
+gam_fit2 = gam(outstate ~ s(terminal)+apps+s(expend)+accept+enroll+top10perc+top25perc+f_undergrad+p_undergrad+room_board+books+personal+s(ph_d)+s_f_ratio+perc_alumni+grad_rate, data = college_data)
 
-anova(gam_fit1, gam_fit2, test = "F")  # go with gam_fit2
+anova(gam_fit1, gam_fit2, test = "F")
+summary(gam_fit2)
+```
+
+The results above show that gam_fit2 is better fits compared to gam_fit1 (pvalue <0.05 whoch means we should reject null hypothesis and go with the bigger model). So, the final GAM model that I chose is the following:
+
+$$
+outstae = 5935.99 + 0.80(accept)-3.11(enroll)+20.49(top10perc)-3.76(top25perc)+ 0.01(f undergrad)-0.04(p undergrad)
++0.63(room board)-0.29(books)-0.4(personal)+46.27(s f ratio)+35.58(perc alumni)+24.87(grad rate) +s(terminal)+s(expend)+s(phD)
+$$
+
+Then I plot the results to see how the smooth terms look like:
+
+```{r gam_plot}
 
 plot(gam_fit2)
 ```
 
-The degree of freedom obtained by GCV method is 3.35.
 
+We can observe that the degree of freedom obtained from GCV is 5.23 for terminal, 6.32 for expend, and 6.03 for PhD.
 
-Describe the results obtained...................
+Also, all three smooth terms follow non-linear trend, this confirms the non-linear relationship between these three variables and outstate. Also, all the three plots show increasing trends: out of state tuition increases as the percentage of faculty members with terminal degree increase, out of state tuition increases as the instructional expenditure per student increase, and out of state tuition increases as the percentage of faculty with PhD's increase.
 
 ### Part d
 Fit a **Multivariate Adaptive Regression Spline (MARS)** model using all the predictors. Report the final model. Present the partial dependence plot of an arbitrary predictor in your final model.
