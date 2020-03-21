@@ -16,6 +16,7 @@ library(splines)
 library(mgcv)
 library(pdp)
 library(earth)
+library(patchwork)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -67,7 +68,41 @@ featurePlot(x, y, plot = "scatter", labels = c("","Y"),
 type = c("p"), layout = c(4, 4))
 ```
 
-describe the results......................
+The overall relationship trend between different variables and the response has been depicted above. To be more careful about which variables we pick  as non-linear, I am ggoing to draw scatter plots for each variable individually and draw lines on them to see which variables considerably deviate from linearity.
+
+```{r individual_scatter}
+
+l1=ggplot((college_data), aes(x=top25perc, y=outstate)) + geom_point() + geom_smooth(method=lm, se=FALSE)
+l2=ggplot((college_data), aes(x=room_board, y=outstate)) + geom_point() + geom_smooth(method=lm, se=FALSE)
+l3=ggplot((college_data), aes(x=perc_alumni, y=outstate)) + geom_point() + geom_smooth(method=lm, se=FALSE)
+l4=ggplot((college_data), aes(x=grad_rate, y=outstate)) + geom_point() + geom_smooth(method=lm, se=FALSE)
+l5=ggplot((college_data), aes(x=top10perc, y=outstate)) + geom_point() + geom_smooth(method=lm, se=FALSE)
+l16=ggplot((college_data), aes(x=s_f_ratio, y=outstate)) + geom_point() + geom_smooth(method=lm, se=FALSE)
+l1+l2+l3+l4+l5+l16
+
+l6=ggplot((college_data), aes(x=ph_d, y=outstate)) + geom_point() + geom_smooth(se=FALSE)
+l7=ggplot((college_data), aes(x=terminal, y=outstate)) + geom_point() + geom_smooth(se=FALSE)
+l8=ggplot((college_data), aes(x=expend, y=outstate)) + geom_point() + geom_smooth(se=FALSE)
+(l6+l7)/l8
+
+l9=ggplot((college_data), aes(x=apps, y=outstate)) + geom_point()
+l10=ggplot((college_data), aes(x=accept, y=outstate)) + geom_point()
+l11=ggplot((college_data), aes(x=enroll, y=outstate)) + geom_point()
+l12=ggplot((college_data), aes(x=f_undergrad, y=outstate)) + geom_point()
+l13=ggplot((college_data), aes(x=p_undergrad, y=outstate)) + geom_point()
+l14=ggplot((college_data), aes(x=personal, y=outstate)) + geom_point()
+l15=ggplot((college_data), aes(x=books, y=outstate)) + geom_point()
+(l9+l10+l11)/(l12+l13+l14)/l15
+
+```
+
+Form scatter plots above, I believe variables *to 10 percent*, *top 25 percent*, *room board*, *alumni percentage*, *s_f_ratio*, and *grad rate* follow a linear trend.
+
+On the other hand, I believe variables *terminal*, *PhD*, and *expend* follow non-linear trends for sure.
+
+Some other candidates for non-linearity are the variables *apps*, *access*, *enroll*, *f_undergrad*, *p_undergrad*, *personal*, and *books*. However, identifying their trend need more investigation on their outlier values and cannot be determined only by looking at the plots.
+
+So, there are 10 total number of candidates for non-linearity, and 3 non-linear variables.
 
 ### Part b
 
@@ -100,6 +135,11 @@ ss_fit2
 ss_pred2 = predict(ss_fit2, x = terminal_grid)
 ss_pred_df2 = data.frame(pred = ss_pred2$y, terminal = terminal_grid)
 
+ss_fit3 = smooth.spline(college_data$terminal, college_data$outstate, df = 3)
+ss_fit3
+ss_pred3 = predict(ss_fit3, x = terminal_grid)
+ss_pred_df3 = data.frame(pred = ss_pred3$y, terminal = terminal_grid)
+
 
 ss_fit6 = smooth.spline(college_data$terminal, college_data$outstate, df = 6)
 ss_fit6
@@ -123,23 +163,26 @@ ss_pred30 = predict(ss_fit30, x = terminal_grid)
 ss_pred_df30 = data.frame(pred = ss_pred30$y, terminal = terminal_grid)
 
 # plotting
+colors = c("GCV df" = "red", "df = 2" = "turquoise3", "df = 3" = "hotpink", "df = 6" = "blue", "df = 10" = "chartreuse3", "df = 20" = "purple")
 
 ggplot(data = college_data, aes(x = terminal, y = outstate)) +
 geom_point(color = rgb(.2, .4, .2, .5)) +
-    geom_line(aes(x = terminal, y = pred), data = ss_pred_df, color = "blue", size = 1) +
-    geom_line(aes(x = terminal, y = pred), data = ss_pred_df2, color = "red", size = 1) +
-    geom_line(aes(x = terminal, y = pred), data = ss_pred_df6, color = "green", size = 1) +
-    geom_line(aes(x = terminal, y = pred), data = ss_pred_df10, color = "orange", size = 1) +
-    geom_line(aes(x = terminal, y = pred), data = ss_pred_df20, color = "black", size = 1) +
-    geom_line(aes(x = terminal, y = pred), data = ss_pred_df30, color = "purple", size = 1) +
-    theme_bw()
+    geom_line(aes(x = terminal, y = pred, color = "GCV df"), data = ss_pred_df, size = 1) +
+    geom_line(aes(x = terminal, y = pred, color = "df = 2"), data = ss_pred_df2, size = 1) + 
+    geom_line(aes(x = terminal, y = pred, color = "df = 3"), data = ss_pred_df3, size = 1) +
+    geom_line(aes(x = terminal, y = pred, color = "df = 6"), data = ss_pred_df6, size = 1) +
+    geom_line(aes(x = terminal, y = pred, color = "df = 10"), data = ss_pred_df10, size = 1) +
+    geom_line(aes(x = terminal, y = pred, color = "df = 20"), data = ss_pred_df20, size = 1) +
+    labs(color = "Degrees of Freedom") +
+         scale_color_manual(values = colors)
 
 ```
 
-From the above model, we can observe that the degrees of freedom from GCV is `r round(ss_fit$df, 3)`, with the smoothing parameter of `r round(ss_fit2$spar, 3)`, and $\lambda$ of `r round(ss_fit2$lambda, 3)`.
+From the above model, we can observe that the degrees of freedom from GCV is `r round(ss_fit$df, 3)`, with the smoothing parameter of `r round(ss_fit$spar, 3)`, and $\lambda$ of `r round(ss_fit$lambda, 3)`.
 
+I also tried a range of degrees of freedom which was consisted of 2, 3, 6, 10, and 20.
 
-Describe the results obtained...................
+Results show that the higher degree of freedom, the more wiggely the fitted line is. The soomthest line possible is a straight line with the degree of freedom of 2. when we move from df of 2 to df of 3, the line obtains more curvture, but it still doesnt capture a lot of points and we loose a lot of information of non-linearity due to underfitting and increasing the bias. When we choose df of 6, the curve starts to get wiggely, and it intensifies as we increase df to 10 and 20 which is the problem of overfitting and increasing the variance. We can see that the df chosen through GCV (`r round(ss_fit$df, 3)`) produces the line that fits the data the best withought having the problem of over or under fitting and the best bias-variance balance. This result visually supports the result that we have obtained from smooth.spline() function.
 
 ### Part c
 Fit a **generalized additive model (GAM)** using all the predictors. Plot the results and explain your findings.
