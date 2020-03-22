@@ -2,7 +2,7 @@
 title: "Nonlinear Models (Splines, GAM, and MARS)"
 author: "Hana Akbarnejad"
 date: "3/20/2020"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -17,6 +17,8 @@ library(mgcv)
 library(pdp)
 library(earth)
 library(patchwork)
+
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -36,7 +38,7 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 
 \newpage
 
-```{r data}
+```{r load_data, results="hide"}
 
 # excluding Columbia University from Data
 college_data = read_csv("College.csv") %>% 
@@ -204,13 +206,17 @@ summary(gam_fit2)
 The results above show that gam_fit2 is better fits compared to gam_fit1 (pvalue <0.05 whoch means we should reject null hypothesis and go with the bigger model). So, the final GAM model that I chose is the following:
 
 $$
-outstae = 5935.99 + 0.80(accept)-3.11(enroll)+20.49(top10perc)-3.76(top25perc)+ 0.01(f undergrad)-0.04(p undergrad)
-+0.63(room board)-0.29(books)-0.4(personal)+46.27(s f ratio)+35.58(perc alumni)+24.87(grad rate) +s(terminal)+s(expend)+s(phD)
+\begin{aligned}
+outstae = 5935.99 + 0.80(accept)-3.11(enroll)+20.49(top10perc)-3.76(top25perc)+ \\
+0.01(f\_undergrad)-0.04(p\_undergrad)+0.63(room\_board)- 0.29(books)-\\
+0.4(personal)+46.27(s f\_ratio)+35.58(perc\_alumni)+ \\
+24.87(grad\_rate)+s(terminal)+s(expend)+s(phD)
+\end{aligned}
 $$
 
 Then I plot the results to see how the smooth terms look like:
 
-```{r gam_plot}
+```{r out.width = "50%"}
 
 plot(gam_fit2)
 ```
@@ -223,7 +229,7 @@ Also, all three smooth terms follow non-linear trend, this confirms the non-line
 ### Part d
 Fit a **Multivariate Adaptive Regression Spline (MARS)** model using all the predictors. Report the final model. Present the partial dependence plot of an arbitrary predictor in your final model.
 
-First, we need to perform a grid search to identify the optimal combination of two tuning parameters (i.e degree of interactions and the number of retained terms) that minimize prediction error
+First, we need to perform a grid search to identify the optimal combination of two tuning parameters (i.e degree of interactions and the number of retained terms) that minimizes the prediction error:
 
 ```{r}
 
@@ -240,28 +246,30 @@ mars_fit$bestTune
 coef(mars_fit$finalModel) # final model
 ```
 
-It can be observed that the optimum number of parameters is `r mars_fit$bestTune`, so our finalModel will have 17 terms including the intercept.
-I created partial dependence plots (PDPs) for some variables:
+It can be observed that the optimum number of parameters is 14, so our finalModel will have 14 terms including the intercept and 13 hinge functions. Using ESL algorithms that automatically selects the cut points in hinge functions, the final Model looks like this:
+
+$$
+\begin{aligned}
+outstate =  10661.22 -1.62h(1355-f\_undergrad)-0.36h(f\_undergrad-1355)+0.73h(expend-6881)- \\
+0.73h(expend-15365)-78.43h(22-perc\_alumni)-6.63h(apps-3877)+6.98h(apps-3712)- \\
+1.27h(4450-room\_board)-240.69h(grad\_rate-97)+1.04h(1300-personal)- \\
+24.53h(97-grad\_rate)+5.36h(913-enroll)-1.95h(2193-accept)
+\end{aligned}
+$$
+
+I created partial dependence plot (PDP) for *apps* variable:
 ```{r PDP}
 
-p1 = partial(mars_fit, pred.var = c("accept"), grid.resolution = 10) %>% autoplot()
-p2 = partial(mars_fit, pred.var = c("enroll"), grid.resolution = 10) %>% autoplot()
-p1
-p2
-
-p3 = partial(mars_fit, pred.var = c("accept", "enroll"), grid.resolution = 10) %>%
-     plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE,
-     screen = list(z = 20, x = -60))
-p3
+partial(mars_fit, pred.var = c("apps"), grid.resolution = 10) %>% autoplot()
 ```
 
-Describe the results?..........
+Partial dependence plots are used to show the the dependence between the response and a feature, marginalizing over the values of all other features. For example the plot above shows the marginal effect of the number of applications received on the estimated out of state tuition of colleges. However, the plot does not show the value of y for each x value and only gives us the general trend of how the outcome changes with the change of that predictor. For example, we can observe that the overal trend of the estimated outcome is increasing as the number of applications increases.
 
 ### Part e
 
-In this part, I am going to predict the outstate tuition of Columbia University based on the GAM and MARS models that I have built in parts c and d.
+In this part, I am going to predict the outstate tuition of Columbia University based on the GAM and MARS models that I have built in **parts c and d**.
 
-```{r predict_cu}
+```{r prediction, results="hide"}
 
 college_data_cu = read_csv("College.csv") %>% 
   janitor::clean_names() %>% 
@@ -273,4 +281,4 @@ gam_pred = predict(gam_fit2, newdata = college_data_cu)
 mars_pred = predict(mars_fit, newdata = college_data_cu)
 ```
 
-`r gam_pred`
+We can observe that the predicted out of state tuition for Columbia University obtained from GAM model is 18531.36 dollars, and 18455.33 dollars from MARS model. We can see that although the predicted value that is obtained from GAM is 76.03 higher than MARS, these values are in a reasonable range and not very far from each other.
